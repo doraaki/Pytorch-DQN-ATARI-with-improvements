@@ -9,12 +9,15 @@ import gym
 from gym import wrappers, logger
 import numpy as np
 import random
+from skimage import color
+import cv2
+from matplotlib import pyplot as plt
 
 from model import DQN
 from replay_memory import ReplayMemory, Transition
 
 class DQNAgent(object):
-    def __init__(self, env, action_space, observation_sample, epsilon, discount, batch_size, replay_memory_size):
+    def __init__(self, env, action_space, observation_sample, discount, batch_size, replay_memory_size, frames_concatenated):
         self.env = env
         self.device = torch.device("cpu")
         
@@ -22,8 +25,8 @@ class DQNAgent(object):
         self.action_space_dim = action_space.n
         
         self.input_shape = observation_sample.shape
-        self.h = self.input_shape[0]
-        self.w = self.input_shape[1]
+        self.h = 84
+        self.w = 84
         
         self.policy_net = DQN(self.h, self.w, self.action_space_dim).to(self.device)
         self.target_net = DQN(self.h, self.w, self.action_space_dim).to(self.device)
@@ -35,9 +38,11 @@ class DQNAgent(object):
         self.replay_memory_size = replay_memory_size
         self.memory = ReplayMemory(self.replay_memory_size)
         
-        self.EPSILON = epsilon
+        # Linearly decrease epsilon during training
+        self.EPSILON = 1
         self.DISCOUNT = discount
         self.BATCH_SIZE = batch_size
+        self.FRAMES_CONCATENATED = frames_concatenated
     
     def transpose_to_torch(self, state):
         state = np.transpose(state, (2, 0, 1))
@@ -45,19 +50,36 @@ class DQNAgent(object):
         state = torch.from_numpy(state)
         return state.unsqueeze(0).to(self.device)
     
+    def rescale_screen(self, screen):
+        screen = cv2.resize(screen, dsize=(84,110))
+        screen = screen[5:89,:,:]
+        return screen
+    
+    def reset_env(self):
+        screen = self.env.reset()
+        state = self.rescale_screen(screen)
+        state = np.reshape(color.rgb2gray(state), (state.shape[0], state.shape[1], 1))
+        state = np.broadcast_to(state, (state.shape[0], state.shape[1], self.FRAMES_CONCATENATED))
+        return self.transpose_to_torch(state)
+    
+    def step(self, action, old_state):
+        next_screen, reward, done, _ = self.env.step(action)
+        rescaled_screen = self.rescale_screen(next_screen)
+        rescaled_screen = np.reshape(color.rgb2gray(rescaled_screen), (rescaled_screen.shape[0], rescaled_screen.shape[1], 1))
+        next_state = torch.cat((old_state[:,1:4,:,:], self.transpose_to_torch(rescaled_screen)), 1)
+        return next_state, reward, done, _
+    
     def fill_replay_memory(self):
         transitions_gathered = 0
         while True:
             
-            state = env.reset()
-            state = self.transpose_to_torch(state)
+            state = self.reset_env()
             episode_reward = 0
             
             while True:
                 action = self.get_action(state)
                 
-                next_state, reward, done, _ = self.env.step(action)
-                next_state = self.transpose_to_torch(next_state)
+                next_state, reward, done, _ = self.step(action, state)
                 
                 episode_reward += reward
                 reward = torch.tensor([reward], device=self.device)
@@ -65,7 +87,7 @@ class DQNAgent(object):
                 if done:
                     self.memory.push(state, action, None, reward)
                     transitions_gathered += 1
-                    print("Episode reward is: ", episode_reward)
+                    print("Episode reward during replay memory filling is: ", episode_reward)
                     break
                 else:
                     self.memory.push(state, action, next_state, reward)
@@ -79,26 +101,26 @@ class DQNAgent(object):
     def train(self, episode_count):
         # Run several episodes before replay memory is full
         self.fill_replay_memory()
-
+        
+        frame_count = 0
+        
         for i in range(episode_count):
-            self.target_net.load_state_dict(self.policy_net.state_dict())
+            self.EPSILON = max(0.1, self.EPSILON - 9 / (episode_count * 10))            
             
-            state = env.reset()
-            state = self.transpose_to_torch(state)
+            state = self.reset_env()
             episode_reward = 0
             
             while True:
                 action = self.get_action(state)
                 
-                next_state, reward, done, _ = self.env.step(action)
-                next_state = self.transpose_to_torch(next_state)
+                next_state, reward, done, _ = self.step(action, state)
                 
                 episode_reward += reward
                 reward = torch.tensor([reward], device=self.device)
                 
                 if done:
                     self.memory.push(state, action, None, reward)
-                    print("Episode reward is: ", episode_reward)
+                    print("Episode ", i, " reward is: ", episode_reward)
                     break
                 else:
                     self.memory.push(state, action, next_state, reward)
@@ -106,6 +128,11 @@ class DQNAgent(object):
                 self.optimize_model()
 
                 state = next_state
+                
+                frame_count += 1
+                if frame_count % 10000 == 0:
+                    print("Copying policy network to target network")
+                    self.target_net.load_state_dict(self.policy_net.state_dict())
     
     
     def get_action(self, state, do_exploration = True):
@@ -156,9 +183,11 @@ class DQNAgent(object):
         
 
 BATCH_SIZE = 32
-DISCOUNT = 0.9
+DISCOUNT = 0.99
 EPSILON = 0.1
 REPLAY_MEMORY_SIZE = 1000
+EPISODE_COUNT = 100
+FRAMES_CONCATENATED = 4
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=None)
@@ -180,11 +209,9 @@ if __name__ == '__main__':
     env.seed(0)
     starting_ob = env.reset()
     
-    agent = DQNAgent(env, env.action_space, starting_ob, EPSILON, DISCOUNT, BATCH_SIZE, REPLAY_MEMORY_SIZE)
-
-    episode_count = 100
+    agent = DQNAgent(env, env.action_space, starting_ob, DISCOUNT, BATCH_SIZE, REPLAY_MEMORY_SIZE, FRAMES_CONCATENATED)
     
-    agent.train(episode_count)
+    agent.train(EPISODE_COUNT)
 
     # Close the env and write monitor result info to disk
     env.close()
