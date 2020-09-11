@@ -1,1 +1,1 @@
-# Pytorch-DQN-ATARI-with-imrovements
+# Pytorch-DQN-ATARI-with-improvements
