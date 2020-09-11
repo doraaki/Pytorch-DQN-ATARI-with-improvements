@@ -1,0 +1,45 @@
+{
+    "rl_params" : {
+        "use_no_op":                          true,
+        "max_no_op_duration":                 5,
+        "final_training_epsilon":             0.1,
+        "epsilon_decay_step_duration":        1000000,
+        "evaluation_epsilon":                 0.05,
+        "frames_between_ddqn_copy":           10000,
+
+        "gamma":                              0.99,
+        "replay_memory_size":                 100000,
+        "evaluation_episodes":                20,
+        "steps_between_evaluations":          100000
+    },
+
+    "train": {
+        "loss":                               "huber",
+        "optimizer":                          "adam",
+        "batch_size":                         32,
+        "learning_rate":                      0.00025,
+        "momentum":                           0.95,
+        "training_step_count":                5000000,
+        "warmup_step_count":                  100000,
+        "steps_between_batches":              4,
+        "device":                             "cuda",
+        "saved_weights_path":                 "weights.pth",
+        "clamp_grads":                        true,
+        "clamp_rewards":                      true
+    },
+
+    "model": {
+        "num_layers":                         3,
+        "channels":                           [32, 64, 64],
+        "kernels":                            [8, 4, 3],
+        "strides":                            [4, 2, 1],
+        "dense_size":                         512
+    },
+
+    "atari": {
+      "env_name":                             "MsPacmanDeterministic-v4",
+      "frames_stacked":                       4,
+      "scaled_image_height":                  84,
+      "scaled_image_width":                   84
+    }
+}
