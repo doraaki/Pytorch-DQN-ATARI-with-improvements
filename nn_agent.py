@@ -8,6 +8,7 @@ import cv2
 from matplotlib import pyplot as plt
 from PIL import Image
 import json
+import time
 
 from model import DQN
 from replay_memory import ReplayMemory
@@ -146,6 +147,39 @@ class DQNAgent(object):
             torch.save(self.policy_net.state_dict(), self.weights_path)
             self.best_evaluation_score = average_reward
         return average_reward
+    
+    def test_with_saved_weights(self, episode_count, speed = 'human'):
+        self.policy_net.load_state_dict(torch.load(self.weights_path, map_location=self.device))
+        self.policy_net.eval()
+        total_reward = 0
+        
+        for i in range(episode_count):
+            state = self.reset_env()
+
+            episode_reward = 0
+            
+            while True:
+                action = self.policy.get_action(state, mode = 'evaluation')
+                
+                next_state, reward, done, info = self.step(action, state)                
+                
+                episode_reward += reward
+                self.env.render()
+                if speed == 'human':
+                    time.sleep(0.1)
+                
+                if done:
+                    break
+
+                state = next_state
+            
+            total_reward += episode_reward
+        
+        average_reward = total_reward / episode_count
+        print("Average score is ", average_reward)
+        
+        return average_reward
+        
 
 if __name__ == '__main__':
     with open('config.json') as config_file:
@@ -165,7 +199,8 @@ if __name__ == '__main__':
     
     
     training_step_count = config['train']['training_step_count']
-    agent.train(training_step_count)
-
+    #agent.train(training_step_count)
+    agent.test_with_saved_weights(100)
+    
     # Close the env and write monitor result info to disk
     env.close()
