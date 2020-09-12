@@ -1,1 +1,1 @@
-# Reinforcement-Learning-ATARI
+# Pytorch-DQN-ATARI-with-improvements
