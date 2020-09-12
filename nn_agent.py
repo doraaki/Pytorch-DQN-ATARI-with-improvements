@@ -161,7 +161,7 @@ if __name__ == '__main__':
     env = gym.make(args.env_id).unwrapped
     env.seed(0)
     
-    agent = DQNAgent(config)
+    agent = DQNAgent(env, config)
     
     
     training_step_count = config['train']['training_step_count']
