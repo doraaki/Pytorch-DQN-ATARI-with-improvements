@@ -3,14 +3,16 @@
         "use_no_op":                          true,
         "max_no_op_duration":                 5,
         "final_training_epsilon":             0.1,
-        "epsilon_decay_step_duration":        1000000,
+        "epsilon_decay_step_duration":        1500000,
         "evaluation_epsilon":                 0.05,
         "frames_between_ddqn_copy":           10000,
 
         "gamma":                              0.99,
         "replay_memory_size":                 100000,
-        "evaluation_episodes":                20,
-        "steps_between_evaluations":          100000
+        "evaluation_episodes_count":          50,
+        "steps_between_evaluations":          100000,
+        
+        "use_ddqn":                            true
     },
 
     "train": {
@@ -22,7 +24,6 @@
         "training_step_count":                5000000,
         "warmup_step_count":                  100000,
         "steps_between_batches":              4,
-        "device":                             "cuda",
         "saved_weights_path":                 "weights.pth",
         "clamp_grads":                        true,
         "clamp_rewards":                      true

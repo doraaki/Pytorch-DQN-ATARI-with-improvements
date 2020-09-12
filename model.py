@@ -20,9 +20,12 @@ class DQN(nn.Module):
         self.input_channels = config['atari']['frames_stacked']
         
         self.convs = []
-        self.convs.append(nn.Conv2d(self.input_channels, self.channels[0], kernel_size=self.kernels[0], stride=self.strides[0]))
-        for i in range(1, self.num_layers):
-            self.convs.append(nn.Conv2d(self.channels[i - 1], self.channels[i], kernel_size=self.kernels[i], stride=self.strides[i]))
+        self.conv1 = nn.Conv2d(self.input_channels, self.channels[0], kernel_size=self.kernels[0], stride=self.strides[0])
+        self.convs.append(self.conv1)
+        self.conv2 = nn.Conv2d(self.channels[0], self.channels[1], kernel_size=self.kernels[1], stride=self.strides[1])
+        self.convs.append(self.conv2)
+        self.conv3 = nn.Conv2d(self.channels[1], self.channels[2], kernel_size=self.kernels[2], stride=self.strides[2])
+        self.convs.append(self.conv3)
         
         # Number of Linear input connections depends on output of conv2d layers
         # and therefore the input image size, so compute it.

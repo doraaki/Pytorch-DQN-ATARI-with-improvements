@@ -24,6 +24,7 @@ class Policy:
         self.epsilon_decay_step_duration = rl_config['epsilon_decay_step_duration']
         self.evaluation_epsilon = rl_config['evaluation_epsilon']
         self.frames_between_ddqn_copy = rl_config['frames_between_ddqn_copy']
+        self.use_ddqn = rl_config['use_ddqn']
 
         train_config = config['train']
         
@@ -78,10 +79,12 @@ class Policy:
             if self.step_count > self.warmup_step_count and self.step_count % self.steps_between_batches == 0:
                 self.optimize_policy_net()
         
-        # Frameskip is 4
-        if self.step_count % (self.frames_between_ddqn_copy / 4) == 0:
-            print('Copying policy network to target network')
-            self.target_net.load_state_dict(self.policy_net.state_dict())
+        # Copy policy net to target net
+        if self.use_ddqn and mode == 'training':
+            # Frameskip is 4
+            if self.step_count % (self.frames_between_ddqn_copy / 4) == 0:
+                print('Copying policy network to target network')
+                self.target_net.load_state_dict(self.policy_net.state_dict())
 
 
         if self.use_no_op and self.episode_step_count <= self.no_op_duration:

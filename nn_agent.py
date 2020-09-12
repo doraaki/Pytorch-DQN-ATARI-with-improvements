@@ -16,7 +16,7 @@ from policy import Policy
 class DQNAgent(object):
     def __init__(self, env, config):
         self.env = env
-        self.device = torch.device('cpu')
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         self.num_actions = env.action_space.n
         self.scaled_image_height = config['atari']['scaled_image_height']
@@ -32,7 +32,12 @@ class DQNAgent(object):
         
         self.policy = Policy(config, self.num_actions, self.policy_net, self.target_net, self.device, self.replay_memory)
         
+        self.evaluation_episodes_count = config['rl_params']['evaluation_episodes_count']
+        self.steps_between_evaluations = config['rl_params']['steps_between_evaluations']
+        
         self.frames_stacked = config['atari']['frames_stacked']
+        
+        self.weights_path = config['train']['weights.pth']
     
     def transpose_to_torch(self, state):
         state = np.transpose(state, (2, 0, 1))
@@ -61,11 +66,13 @@ class DQNAgent(object):
         return next_state, reward, done, info
     
     def train(self, training_step_count):
+        self.best_evaluation_score = 0
+        
         step_count = 0
         episode_count = 0
         
         evaluation_average_scores = []
-        next_evaluation_checkpoint = training_step_count / 10
+        next_evaluation_checkpoint = self.steps_between_evaluations
 
         while step_count < training_step_count:
             episode_count += 1
@@ -78,9 +85,9 @@ class DQNAgent(object):
             while True:                
                 step_count += 1
                 if step_count > next_evaluation_checkpoint:
-                    average_score = self.evaluate(50)
+                    average_score = self.evaluate(self.evaluation_episodes_count)
                     evaluation_average_scores.append(average_score)
-                    next_evaluation_checkpoint += training_step_count / 10
+                    next_evaluation_checkpoint += self.steps_between_evaluations
                 
                 action = self.policy.get_action(state)
                 action_is_no_op = self.policy.use_no_op and self.policy.no_op_duration >= self.policy.episode_step_count
@@ -111,7 +118,7 @@ class DQNAgent(object):
         plt.savefig('training_scores.png')
     
     def evaluate(self, episode_count):
-        average_reward = 0
+        total_reward = 0
         
         for i in range(episode_count):
             state = self.reset_env()
@@ -119,7 +126,7 @@ class DQNAgent(object):
             episode_reward = 0
             
             while True:
-                action = self.policy.get_action(state, mode = 'evaluate')
+                action = self.policy.get_action(state, mode = 'evaluation')
                 
                 next_state, reward, done, info = self.step(action, state)                
                 
@@ -130,10 +137,15 @@ class DQNAgent(object):
 
                 state = next_state
             
-            average_reward += episode_reward
+            total_reward += episode_reward
         
-        print("Average score is ", average_reward / episode_count)
-        return average_reward / episode_count
+        average_reward = total_reward / episode_count
+        print("Average score is ", average_reward)
+        
+        if average_reward > self.best_evaluation_score:
+            torch.save(self.policy_net.state_dict(), self.weights_path)
+            self.best_evaluation_score = average_reward
+        return average_reward
 
 if __name__ == '__main__':
     with open('config.json') as config_file:
