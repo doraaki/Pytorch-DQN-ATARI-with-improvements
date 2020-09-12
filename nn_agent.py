@@ -37,7 +37,7 @@ class DQNAgent(object):
         
         self.frames_stacked = config['atari']['frames_stacked']
         
-        self.weights_path = config['train']['weights.pth']
+        self.weights_path = config['train']['saved_weights_path']
     
     def transpose_to_torch(self, state):
         state = np.transpose(state, (2, 0, 1))
