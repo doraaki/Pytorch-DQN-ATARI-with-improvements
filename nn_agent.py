@@ -166,7 +166,7 @@ class DQNAgent(object):
                 episode_reward += reward
                 self.env.render()
                 if speed == 'human':
-                    time.sleep(0.1)
+                    time.sleep(0.05)
                 
                 if done:
                     break
