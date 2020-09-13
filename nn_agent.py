@@ -38,6 +38,11 @@ class DQNAgent(object):
         else:
             self.replay_memory = ReplayMemory(self.replay_memory_size, self.use_priority_replay)
         
+        self.multi_step_n = config['rl_params']['multi_step_n']
+        self.gamma = config['rl_params']['gamma']
+        self.multi_step_transitions = []
+        
+        
         self.policy = Policy(config, self.num_actions, self.policy_net, self.target_net, self.device, self.replay_memory)
         
         self.evaluation_episodes_count = config['rl_params']['evaluation_episodes_count']
@@ -47,15 +52,34 @@ class DQNAgent(object):
         
         self.weights_path = config['train']['saved_weights_path']
     
+    def push_transition(self, state, action, next_state, reward):
+        # If there is a transition that reached multi_step_n, push it to replay memory
+        if len(self.multi_step_transitions) == self.multi_step_n:
+            multi_step_state, multi_step_action, multi_step_next_state, multi_step_reward = self.multi_step_transitions[0]
+            self.replay_memory.push(multi_step_state, multi_step_action, multi_step_next_state, multi_step_reward)
+            self.multi_step_transitions = self.multi_step_transitions[1:]
+        
+        # Update all transitions
+        for i in range(len(self.multi_step_transitions)):
+            old_t_state, old_t_action, old_t_next_state, old_t_reward = self.multi_step_transitions[i]
+            old_t_next_state = next_state
+            old_t_reward = old_t_reward * self.gamma + reward
+            self.multi_step_transitions[i] = (old_t_state, old_t_action, old_t_next_state, old_t_reward)
+        
+        self.multi_step_transitions.append((state, action, next_state, reward))
+    
+    
     def transpose_to_torch(self, state):
         state = np.transpose(state, (2, 0, 1))
         state = np.ascontiguousarray(state, dtype=np.float32) / 255
         state = torch.from_numpy(state)
         return state.unsqueeze(0).to(self.device)
     
+    
     def rescale_screen(self, screen):
         screen = cv2.resize(screen, dsize=(self.scaled_image_height,self.scaled_image_width))
         return screen
+    
     
     def reset_env(self):
         self.policy.set_parameters_for_new_episode()
@@ -114,13 +138,13 @@ class DQNAgent(object):
                 
                 if done or lost_life:
                     if not action_is_no_op:
-                        self.replay_memory.push(state, action, None, reward)
+                        self.push_transition(state, action, None, reward)
                     
                     print("Episode ", episode_count, " reward is: ", episode_reward, " ; Stepcount is: ", step_count)
                     break
 
                 if not action_is_no_op:
-                        self.replay_memory.push(state, action, next_state, reward)
+                        self.push_transition(state, action, next_state, reward)
 
                 state = next_state
     

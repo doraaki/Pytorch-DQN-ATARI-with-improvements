@@ -16,7 +16,9 @@
         
         "use_priority_replay":                true,
         "priority_replay_alpha":              0.4,
-        "priority_replay_beta":               0.6
+        "priority_replay_beta":               0.6,
+
+        "multi_step_n":                       3
     },
 
     "train": {
@@ -26,7 +28,7 @@
         "learning_rate":                      0.00025,
         "momentum":                           0.95,
         "training_step_count":                5000000,
-        "warmup_step_count":                  100000,
+        "warmup_step_count":                  100,
         "steps_between_batches":              4,
         "saved_weights_path":                 "weights.pth",
         "clamp_grads":                        true,
