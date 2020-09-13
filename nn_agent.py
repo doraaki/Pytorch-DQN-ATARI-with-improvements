@@ -29,7 +29,14 @@ class DQNAgent(object):
         self.target_net.eval()
         
         self.replay_memory_size = config['rl_params']['replay_memory_size']
-        self.replay_memory = ReplayMemory(self.replay_memory_size)
+        
+        self.use_priority_replay = config['rl_params']['use_priority_replay']
+        if self.use_priority_replay:
+            self.priority_replay_alpha = config['rl_params']['priority_replay_alpha']
+            self.priority_replay_beta = config['rl_params']['priority_replay_beta']
+            self.replay_memory = ReplayMemory(self.replay_memory_size, self.use_priority_replay, self.priority_replay_alpha, self.priority_replay_beta)
+        else:
+            self.replay_memory = ReplayMemory(self.replay_memory_size, self.use_priority_replay)
         
         self.policy = Policy(config, self.num_actions, self.policy_net, self.target_net, self.device, self.replay_memory)
         
@@ -148,6 +155,7 @@ class DQNAgent(object):
             self.best_evaluation_score = average_reward
         return average_reward
     
+
     def test_with_saved_weights(self, episode_count, speed = 'human'):
         self.policy_net.load_state_dict(torch.load(self.weights_path, map_location=self.device))
         self.policy_net.eval()
@@ -199,8 +207,8 @@ if __name__ == '__main__':
     
     
     training_step_count = config['train']['training_step_count']
-    #agent.train(training_step_count)
-    agent.test_with_saved_weights(100)
+    agent.train(training_step_count)
+    #agent.test_with_saved_weights(100)
     
     # Close the env and write monitor result info to disk
     env.close()

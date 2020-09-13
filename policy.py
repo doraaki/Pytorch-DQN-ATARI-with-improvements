@@ -25,13 +25,14 @@ class Policy:
         self.evaluation_epsilon = rl_config['evaluation_epsilon']
         self.frames_between_ddqn_copy = rl_config['frames_between_ddqn_copy']
         self.use_ddqn = rl_config['use_ddqn']
+        self.use_priority_replay = rl_config['use_priority_replay']
 
         train_config = config['train']
         
         if train_config['loss'] == 'huber':
-            self.loss = nn.SmoothL1Loss()
+            self.loss = nn.SmoothL1Loss(reduce=False)
         elif train_config['loss'] == 'MSE':
-            self.loss = nn.MSELoss()
+            self.loss = nn.MSELoss(reduce=False)
         else:
             print('Invalid loss')
             exit(1)
@@ -104,7 +105,11 @@ class Policy:
             
 
     def optimize_policy_net(self):
-        transitions = self.replay_memory.sample(self.batch_size)
+        if self.use_priority_replay:
+            transitions, indices, importance_sampling_weights = self.replay_memory.sample(self.batch_size)
+        else:
+            transitions = self.replay_memory.sample(self.batch_size)
+
         batch = Transition(*zip(*transitions))
         
         non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
@@ -133,10 +138,20 @@ class Policy:
     
         # Compute loss
         loss = self.loss(state_action_values, expected_state_action_values.unsqueeze(1))
+        
+        # Multiply with importance weigths if using priority replay
+        if self.use_priority_replay:
+            loss = loss * torch.reshape(torch.tensor(importance_sampling_weights, device = self.device), (self.batch_size, 1))
+            new_priorities = loss + 1e-5
+        
+        loss = loss.mean()
     
         # Optimize the model
         self.optimizer.zero_grad()
         loss.backward()
+        
+        if self.use_priority_replay:
+            self.replay_memory.update_priorities(indices, new_priorities.data.cpu().numpy())
         
         if self.clamp_grads:
             for param in self.policy_net.parameters():

@@ -12,7 +12,11 @@
         "evaluation_episodes_count":          50,
         "steps_between_evaluations":          100000,
         
-        "use_ddqn":                            true
+        "use_ddqn":                           true,
+        
+        "use_priority_replay":                true,
+        "priority_replay_alpha":              0.4,
+        "priority_replay_beta":               0.6
     },
 
     "train": {
