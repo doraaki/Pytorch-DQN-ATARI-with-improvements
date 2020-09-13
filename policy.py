@@ -26,6 +26,7 @@ class Policy:
         self.frames_between_ddqn_copy = rl_config['frames_between_ddqn_copy']
         self.use_ddqn = rl_config['use_ddqn']
         self.use_priority_replay = rl_config['use_priority_replay']
+        self.use_noisy_nets = rl_config['use_noisy_nets']
 
         train_config = config['train']
         
@@ -96,6 +97,9 @@ class Policy:
             self.training_epsilon -= self.epsilon_decay_between_actions
         elif mode == 'evaluation':
             epsilon = self.evaluation_epsilon
+        
+        if self.use_noisy_nets:
+            epsilon = 0
 
         if np.random.uniform() < epsilon:
             return torch.tensor([[random.randrange(self.num_actions)]], device=self.device, dtype=torch.long)

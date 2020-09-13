@@ -18,7 +18,10 @@
         "priority_replay_alpha":              0.4,
         "priority_replay_beta":               0.6,
 
-        "multi_step_n":                       3
+        "multi_step_n":                       3,
+        
+        "use_noisy_nets":                     true,
+        "sigma_init":                         0.5
     },
 
     "train": {

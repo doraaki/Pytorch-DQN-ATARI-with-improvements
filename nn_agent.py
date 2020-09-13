@@ -23,6 +23,8 @@ class DQNAgent(object):
         self.scaled_image_height = config['atari']['scaled_image_height']
         self.scaled_image_width = config['atari']['scaled_image_width']
         
+        self.use_noisy_nets = config['rl_params']['use_noisy_nets']
+        
         self.policy_net = DQN(config, self.num_actions).to(self.device)
         self.target_net = DQN(config, self.num_actions).to(self.device)
         self.target_net.load_state_dict(self.policy_net.state_dict())
@@ -41,7 +43,6 @@ class DQNAgent(object):
         self.multi_step_n = config['rl_params']['multi_step_n']
         self.gamma = config['rl_params']['gamma']
         self.multi_step_transitions = []
-        
         
         self.policy = Policy(config, self.num_actions, self.policy_net, self.target_net, self.device, self.replay_memory)
         
@@ -114,6 +115,9 @@ class DQNAgent(object):
             
             episode_reward = 0
             
+            if self.use_noisy_nets:
+                self.policy_net.sample_noise()
+            
             while True:                
                 step_count += 1
                 if step_count > next_evaluation_checkpoint:
@@ -144,7 +148,7 @@ class DQNAgent(object):
                     break
 
                 if not action_is_no_op:
-                        self.push_transition(state, action, next_state, reward)
+                    self.push_transition(state, action, next_state, reward)
 
                 state = next_state
     
@@ -155,6 +159,9 @@ class DQNAgent(object):
             state = self.reset_env()
 
             episode_reward = 0
+            
+            if self.use_noisy_nets:
+                self.policy_net.remove_noise()
             
             while True:
                 action = self.policy.get_action(state, mode = 'evaluation')
