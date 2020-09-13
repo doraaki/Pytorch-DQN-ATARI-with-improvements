@@ -95,6 +95,9 @@ class DQNAgent(object):
                 if step_count > next_evaluation_checkpoint:
                     average_score = self.evaluate(self.evaluation_episodes_count)
                     evaluation_average_scores.append(average_score)
+                    evaluation_index = np.arange(1, len(evaluation_average_scores) + 1)
+                    plt.plot(evaluation_index, evaluation_average_scores)
+                    plt.savefig('training_scores.png')
                     next_evaluation_checkpoint += self.steps_between_evaluations
                 
                 action = self.policy.get_action(state)
@@ -113,17 +116,13 @@ class DQNAgent(object):
                     if not action_is_no_op:
                         self.replay_memory.push(state, action, None, reward)
                     
-                    print("Episode ", episode_count, " reward is: ", episode_reward)
+                    print("Episode ", episode_count, " reward is: ", episode_reward, " ; Stepcount is: ", step_count)
                     break
 
                 if not action_is_no_op:
                         self.replay_memory.push(state, action, next_state, reward)
 
                 state = next_state
-        
-        evaluation_index = np.arange(1, len(evaluation_average_scores) + 1)
-        plt.plot(evaluation_index, evaluation_average_scores)
-        plt.savefig('training_scores.png')
     
     def evaluate(self, episode_count):
         total_reward = 0
