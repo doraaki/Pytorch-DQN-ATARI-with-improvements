@@ -8,7 +8,7 @@
         "frames_between_ddqn_copy":           10000,
 
         "gamma":                              0.99,
-        "replay_memory_size":                 100000,
+        "replay_memory_size":                 50000,
         "evaluation_episodes_count":          30,
         "steps_between_evaluations":          100000,
         
@@ -31,9 +31,10 @@
         "learning_rate":                      0.00025,
         "momentum":                           0.95,
         "training_step_count":                3000000,
-        "warmup_step_count":                  100000,
+        "warmup_step_count":                  50000,
         "steps_between_batches":              4,
-        "saved_weights_path":                 "weights.pth",
+        "best_weights_path":                  "best_weights.pth",
+        "last_weights_path":                  "last_weights.pth",
         "clamp_grads":                        true,
         "clamp_rewards":                      true
     },

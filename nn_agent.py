@@ -51,7 +51,8 @@ class DQNAgent(object):
         
         self.frames_stacked = config['atari']['frames_stacked']
         
-        self.weights_path = config['train']['saved_weights_path']
+        self.last_weights_path = config['train']['last_weights_path']
+        self.best_weights_path = config['train']['best_weights_path']
     
     def push_transition(self, state, action, next_state, reward):
         # If there is a transition that reached multi_step_n, push it to replay memory
@@ -98,6 +99,17 @@ class DQNAgent(object):
         next_state = torch.cat((old_state[:,1:self.frames_stacked,:,:], self.transpose_to_torch(rescaled_screen)), 1)
         return next_state, reward, done, info
     
+    def save_scores(self, evaluation_average_scores):
+        evaluation_index = np.arange(1, len(evaluation_average_scores) + 1)
+        plt.plot(evaluation_index, evaluation_average_scores)
+        plt.savefig('training_scores.png')
+        
+        f = open("scores.txt", "w")
+        for score in evaluation_average_scores:
+            f.write(str(evaluation_average_scores) + ', ')
+        f.close()
+        
+    
     def train(self, training_step_count):
         self.best_evaluation_score = 0
         
@@ -120,9 +132,7 @@ class DQNAgent(object):
                 if step_count > next_evaluation_checkpoint:
                     average_score = self.evaluate(self.evaluation_episodes_count)
                     evaluation_average_scores.append(average_score)
-                    evaluation_index = np.arange(1, len(evaluation_average_scores) + 1)
-                    plt.plot(evaluation_index, evaluation_average_scores)
-                    plt.savefig('training_scores.png')
+                    self.save_scores(evaluation_average_scores)
                     next_evaluation_checkpoint += self.steps_between_evaluations
                 
                 action = self.policy.get_action(state)
@@ -178,8 +188,10 @@ class DQNAgent(object):
         average_reward = total_reward / episode_count
         print("Average score is ", average_reward)
         
+        torch.save(self.policy_net.state_dict(), self.last_weights_path)
+        
         if average_reward > self.best_evaluation_score:
-            torch.save(self.policy_net.state_dict(), self.weights_path)
+            torch.save(self.policy_net.state_dict(), self.best_weights_path)
             self.best_evaluation_score = average_reward
         return average_reward
     
