@@ -8,7 +8,7 @@ import math
 
 
 # Noisy linear layer with independent Gaussian noise
-# https://github.com/Kaixhin/NoisyNet-A3C
+# https://github.com/Kaixhin/NoisyNet-A3C, but turned into factorized noise
 class NoisyLinear(nn.Linear):
   def __init__(self, in_features, out_features, sigma_init=0.017, bias=True):
     super(NoisyLinear, self).__init__(in_features, out_features, bias=True)  # TODO: Adapt for no bias
@@ -41,7 +41,7 @@ class NoisyLinear(nn.Linear):
     eps_in = func(self.epsilon_input)
     eps_out = func(self.epsilon_output)
 
-    self.epsilon_bias = eps_out.t()
+    self.epsilon_bias = torch.squeeze(eps_out)
     self.epsilon_weight = torch.mul(eps_in, eps_out)
 
   def remove_noise(self):
