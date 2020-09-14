@@ -64,7 +64,7 @@ class DQNAgent(object):
         for i in range(len(self.multi_step_transitions)):
             old_t_state, old_t_action, old_t_next_state, old_t_reward = self.multi_step_transitions[i]
             old_t_next_state = next_state
-            old_t_reward = old_t_reward * self.gamma + reward
+            old_t_reward = old_t_reward + reward * (self.gamma ** (len(self.multi_step_transitions) - i))
             self.multi_step_transitions[i] = (old_t_state, old_t_action, old_t_next_state, old_t_reward)
         
         self.multi_step_transitions.append((state, action, next_state, reward))
@@ -115,9 +115,6 @@ class DQNAgent(object):
             
             episode_reward = 0
             
-            if self.use_noisy_nets:
-                self.policy_net.sample_noise()
-            
             while True:                
                 step_count += 1
                 if step_count > next_evaluation_checkpoint:
@@ -162,6 +159,7 @@ class DQNAgent(object):
             
             if self.use_noisy_nets:
                 self.policy_net.remove_noise()
+                self.target_net.remove_noise()
             
             while True:
                 action = self.policy.get_action(state, mode = 'evaluation')

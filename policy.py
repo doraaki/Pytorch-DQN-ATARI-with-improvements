@@ -99,7 +99,10 @@ class Policy:
             epsilon = self.evaluation_epsilon
         
         if self.use_noisy_nets:
-            epsilon = 0
+            if self.step_count > self.warmup_step_count:
+                epsilon = 0
+            else:
+                epsilon = 1
 
         if np.random.uniform() < epsilon:
             return torch.tensor([[random.randrange(self.num_actions)]], device=self.device, dtype=torch.long)
@@ -162,3 +165,6 @@ class Policy:
                 param.grad.data.clamp_(-1, 1)
         
         self.optimizer.step()
+
+        if self.use_noisy_nets:
+            self.policy_net.sample_noise()

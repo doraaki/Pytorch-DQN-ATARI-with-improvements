@@ -19,6 +19,8 @@ class NoisyLinear(nn.Linear):
     self.sigma_bias = Parameter(torch.Tensor(out_features))  # σ^b
     self.register_buffer('epsilon_weight', torch.zeros(out_features, in_features))
     self.register_buffer('epsilon_bias', torch.zeros(out_features))
+    self.register_buffer("epsilon_input", torch.zeros(1, in_features))
+    self.register_buffer("epsilon_output", torch.zeros(out_features, 1))
     self.reset_parameters()
 
   def reset_parameters(self):
@@ -32,8 +34,15 @@ class NoisyLinear(nn.Linear):
     return F.linear(input, self.weight + self.sigma_weight * torch.tensor(self.epsilon_weight, device = self.device), self.bias + self.sigma_bias * torch.tensor(self.epsilon_bias, device = self.device))
 
   def sample_noise(self):
-    self.epsilon_weight = torch.randn(self.out_features, self.in_features)
-    self.epsilon_bias = torch.randn(self.out_features)
+    torch.randn(self.epsilon_input.size(), out=self.epsilon_input)
+    torch.randn(self.epsilon_output.size(), out=self.epsilon_output)
+
+    func = lambda x: torch.sign(x) * torch.sqrt(torch.abs(x))
+    eps_in = func(self.epsilon_input)
+    eps_out = func(self.epsilon_output)
+
+    self.epsilon_bias = eps_out.t()
+    self.epsilon_weight = torch.mul(eps_in, eps_out)
 
   def remove_noise(self):
     self.epsilon_weight = torch.zeros(self.out_features, self.in_features)
@@ -78,6 +87,7 @@ class DQN(nn.Module):
             h = conv2d_size_out(h, self.kernels[i], self.strides[i])
             
         linear_input_size = h * w * self.channels[self.num_layers - 1]
+        print(linear_input_size)
         if self.use_noisy_nets:
             self.dense1 = NoisyLinear(linear_input_size, self.dense_size, sigma_init = self.sigma_init).to(self.device)
             self.dense2 = NoisyLinear(self.dense_size, outputs, sigma_init = self.sigma_init).to(self.device)
