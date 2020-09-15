@@ -20,7 +20,7 @@
 
         "multi_step_n":                       3,
         
-        "use_noisy_nets":                     true,
+        "use_noisy_nets":                     false,
         "sigma_init":                         0.2
     },
 

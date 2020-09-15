@@ -197,7 +197,7 @@ class DQNAgent(object):
     
 
     def test_with_saved_weights(self, episode_count, speed = 'human'):
-        self.policy_net.load_state_dict(torch.load(self.weights_path, map_location=self.device))
+        self.policy_net.load_state_dict(torch.load(self.best_weights_path, map_location=self.device))
         self.policy_net.eval()
         total_reward = 0
         
@@ -247,8 +247,8 @@ if __name__ == '__main__':
     
     
     training_step_count = config['train']['training_step_count']
-    agent.train(training_step_count)
-    #agent.test_with_saved_weights(100)
+    #agent.train(training_step_count)
+    agent.test_with_saved_weights(10)
     
     # Close the env and write monitor result info to disk
     env.close()
