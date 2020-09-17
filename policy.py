@@ -23,9 +23,13 @@ class Policy:
         self.final_training_epsilon = rl_config['final_training_epsilon']
         self.epsilon_decay_step_duration = rl_config['epsilon_decay_step_duration']
         self.evaluation_epsilon = rl_config['evaluation_epsilon']
+        
         self.frames_between_ddqn_copy = rl_config['frames_between_ddqn_copy']
         self.use_ddqn = rl_config['use_ddqn']
+        
         self.use_priority_replay = rl_config['use_priority_replay']
+        self.start_priority_replay_beta = config['rl_params']['priority_replay_beta']
+        
         self.use_noisy_nets = rl_config['use_noisy_nets']
 
         train_config = config['train']
@@ -159,6 +163,7 @@ class Policy:
         
         if self.use_priority_replay:
             self.replay_memory.update_priorities(indices, new_priorities.data.cpu().numpy())
+            self.replay_memory.importance_sampling_beta = min(1, self.replay_memory.importance_sampling_beta + self.steps_between_batches * (1 - self.start_priority_replay_beta) / (self.training_step_count - self.warmup_step_count))
         
         if self.clamp_grads:
             for param in self.policy_net.parameters():
