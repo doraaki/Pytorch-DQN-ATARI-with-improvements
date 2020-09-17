@@ -7,46 +7,52 @@ from torch.autograd import Variable
 import math
 
 
-# Noisy linear layer with independent Gaussian noise
-# https://github.com/Kaixhin/NoisyNet-A3C, but turned into factorized noise
-class NoisyLinear(nn.Linear):
-  def __init__(self, in_features, out_features, sigma_init=0.017, bias=True):
-    super(NoisyLinear, self).__init__(in_features, out_features, bias=True)  # TODO: Adapt for no bias
-    # µ^w and µ^b reuse self.weight and self.bias
-    self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    self.sigma_init = sigma_init
-    self.sigma_weight = Parameter(torch.Tensor(out_features, in_features))  # σ^w
-    self.sigma_bias = Parameter(torch.Tensor(out_features))  # σ^b
-    self.register_buffer('epsilon_weight', torch.zeros(out_features, in_features))
-    self.register_buffer('epsilon_bias', torch.zeros(out_features))
-    self.register_buffer("epsilon_input", torch.zeros(1, in_features))
-    self.register_buffer("epsilon_output", torch.zeros(out_features, 1))
-    self.reset_parameters()
 
-  def reset_parameters(self):
-    if hasattr(self, 'sigma_weight'):  # Only init after all params added (otherwise super().__init__() fails)
-      init.uniform(self.weight, -math.sqrt(3 / self.in_features), math.sqrt(3 / self.in_features))
-      init.uniform(self.bias, -math.sqrt(3 / self.in_features), math.sqrt(3 / self.in_features))
-      init.constant(self.sigma_weight, self.sigma_init)
-      init.constant(self.sigma_bias, self.sigma_init)
 
-  def forward(self, input):
-    return F.linear(input, self.weight + self.sigma_weight * torch.tensor(self.epsilon_weight, device = self.device), self.bias + self.sigma_bias * torch.tensor(self.epsilon_bias, device = self.device))
+# Factorised NoisyLinear layer with bias
+# https://github.com/qfettes/DeepRL-Tutorials
+class NoisyLinear(nn.Module):
+    def __init__(self, in_features, out_features, std_init=0.4, factorised_noise=True):
+        super(NoisyLinear, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.std_init = std_init
+        self.factorised_noise = factorised_noise
+        self.weight_mu = nn.Parameter(torch.empty(out_features, in_features))
+        self.weight_sigma = nn.Parameter(torch.empty(out_features, in_features))
+        self.register_buffer('weight_epsilon', torch.empty(out_features, in_features))
+        self.bias_mu = nn.Parameter(torch.empty(out_features))
+        self.bias_sigma = nn.Parameter(torch.empty(out_features))
+        self.register_buffer('bias_epsilon', torch.empty(out_features))
+        self.reset_parameters()
+        self.sample_noise()
 
-  def sample_noise(self):
-    torch.randn(self.epsilon_input.size(), out=self.epsilon_input)
-    torch.randn(self.epsilon_output.size(), out=self.epsilon_output)
+    def reset_parameters(self):
+        mu_range = 1.0 / math.sqrt(self.in_features)
+        self.weight_mu.data.uniform_(-mu_range, mu_range)
+        self.weight_sigma.data.fill_(self.std_init / math.sqrt(self.in_features))
+        self.bias_mu.data.uniform_(-mu_range, mu_range)
+        self.bias_sigma.data.fill_(self.std_init / math.sqrt(self.out_features))
 
-    func = lambda x: torch.sign(x) * torch.sqrt(torch.abs(x))
-    eps_in = func(self.epsilon_input)
-    eps_out = func(self.epsilon_output)
+    def _scale_noise(self, size):
+        x = torch.randn(size)
+        return x.sign().mul_(x.abs().sqrt_())
 
-    self.epsilon_bias = torch.squeeze(eps_out)
-    self.epsilon_weight = torch.mul(eps_in, eps_out)
+    def sample_noise(self):
+        if self.factorised_noise:
+            epsilon_in = self._scale_noise(self.in_features)
+            epsilon_out = self._scale_noise(self.out_features)
+            self.weight_epsilon.copy_(epsilon_out.ger(epsilon_in))
+            self.bias_epsilon.copy_(epsilon_out)
+        else:
+            self.weight_epsilon.copy_(torch.randn((self.out_features, self.in_features)))
+            self.bias_epsilon.copy_(torch.randn(self.out_features))
 
-  def remove_noise(self):
-    self.epsilon_weight = torch.zeros(self.out_features, self.in_features)
-    self.epsilon_bias = torch.zeros(self.out_features)
+    def forward(self, inp):
+        if self.training:
+            return F.linear(inp, self.weight_mu + self.weight_sigma * self.weight_epsilon, self.bias_mu + self.bias_sigma * self.bias_epsilon)
+        else:
+            return F.linear(inp, self.weight_mu, self.bias_mu)
 
 
 class DQN(nn.Module):
@@ -88,13 +94,9 @@ class DQN(nn.Module):
             
         linear_input_size = h * w * self.channels[self.num_layers - 1]
         print(linear_input_size)
-        if self.use_noisy_nets:
-            self.dense1 = NoisyLinear(linear_input_size, self.dense_size, sigma_init = self.sigma_init).to(self.device)
-            self.dense2 = NoisyLinear(self.dense_size, outputs, sigma_init = self.sigma_init).to(self.device)
-        else:
-            self.dense1 = nn.Linear(linear_input_size, self.dense_size)
-            self.dense2 = nn.Linear(self.dense_size, outputs)
-        #self.softmax = nn.Softmax(outputs)
+        
+        self.dense1 = nn.Linear(linear_input_size, self.dense_size) if not self.use_noisy_nets else NoisyLinear(linear_input_size, self.dense_size, self.sigma_init)
+        self.dense2 = nn.Linear(self.dense_size, outputs) if not self.use_noisy_nets else NoisyLinear(self.dense_size, outputs, self.sigma_init)
         
     def forward(self, x):
         for i in range(self.num_layers):
@@ -107,8 +109,3 @@ class DQN(nn.Module):
         if self.use_noisy_nets:
             self.dense1.sample_noise()
             self.dense2.sample_noise()
-    
-    def remove_noise(self):
-        if self.use_noisy_nets:
-            self.dense1.remove_noise()
-            self.dense2.remove_noise()

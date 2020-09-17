@@ -167,10 +167,6 @@ class DQNAgent(object):
 
             episode_reward = 0
             
-            if self.use_noisy_nets:
-                self.policy_net.remove_noise()
-                self.target_net.remove_noise()
-            
             while True:
                 action = self.policy.get_action(state, mode = 'evaluation')
                 
@@ -247,8 +243,8 @@ if __name__ == '__main__':
     
     
     training_step_count = config['train']['training_step_count']
-    #agent.train(training_step_count)
-    agent.test_with_saved_weights(10)
+    agent.train(training_step_count)
+    #agent.test_with_saved_weights(10)
     
     # Close the env and write monitor result info to disk
     env.close()

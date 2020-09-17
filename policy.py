@@ -116,6 +116,9 @@ class Policy:
             
 
     def optimize_policy_net(self):
+        if self.use_noisy_nets:
+            self.policy_net.sample_noise()
+        
         if self.use_priority_replay:
             transitions, indices, importance_sampling_weights = self.replay_memory.sample(self.batch_size)
         else:
@@ -170,6 +173,3 @@ class Policy:
                 param.grad.data.clamp_(-1, 1)
         
         self.optimizer.step()
-
-        if self.use_noisy_nets:
-            self.policy_net.sample_noise()
