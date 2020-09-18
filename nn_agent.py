@@ -105,18 +105,17 @@ class DQNAgent(object):
         plt.savefig('training_scores.png')
         
         f = open("scores.txt", "w")
-        for score in evaluation_average_scores:
-            f.write(str(evaluation_average_scores) + ', ')
+        f.write(str(evaluation_average_scores))
         f.close()
         
     
-    def train(self, training_step_count):
+    def train(self, training_step_count, evaluation_scores = []):
         self.best_evaluation_score = 0
         
         step_count = 0
         episode_count = 0
         
-        evaluation_average_scores = []
+        evaluation_average_scores = evaluation_scores
         next_evaluation_checkpoint = self.steps_between_evaluations
 
         while step_count < training_step_count:
@@ -158,6 +157,22 @@ class DQNAgent(object):
                     self.push_transition(state, action, next_state, reward)
 
                 state = next_state
+    
+
+    def restart_training(self, restart_config):
+        self.policy_net.load_state_dict(torch.load(self.last_weights_path, map_location=self.device))
+        self.target_net.load_state_dict(self.policy_net.state_dict())
+        self.target_net.eval()
+        self.policy_net.eval()
+
+        self.steps_taken = restart_config["steps_taken"]
+        self.evaluation_scores = restart_config["scores"]
+        self.policy.step_count = self.steps_taken
+        self.policy.training_epsilon = self.policy.final_training_epsilon
+        self.policy.warmup_step_count = self.steps_taken + self.policy.warmup_step_count
+        
+        self.train(restart_config["remaining_steps"])
+        
     
     def evaluate(self, episode_count):
         total_reward = 0
@@ -201,7 +216,7 @@ class DQNAgent(object):
             state = self.reset_env()
 
             episode_reward = 0
-            
+
             while True:
                 action = self.policy.get_action(state, mode = 'evaluation')
                 
@@ -228,6 +243,9 @@ class DQNAgent(object):
 if __name__ == '__main__':
     with open('config.json') as config_file:
         config = json.load(config_file)
+
+    with open('restart_config.json') as restart_config_file:
+        restart_config = json.load(restart_config_file)
     
     env_name = config['atari']['env_name']
     
@@ -244,6 +262,7 @@ if __name__ == '__main__':
     
     training_step_count = config['train']['training_step_count']
     agent.train(training_step_count)
+    #agent.restart_training(restart_config)
     #agent.test_with_saved_weights(10)
     
     # Close the env and write monitor result info to disk

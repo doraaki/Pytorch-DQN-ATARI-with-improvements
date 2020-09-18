@@ -98,7 +98,7 @@ class Policy:
 
         if mode == 'training':
             epsilon = self.training_epsilon
-            self.training_epsilon -= self.epsilon_decay_between_actions
+            self.training_epsilon = max(self.final_training_epsilon, self.training_epsilon - self.epsilon_decay_between_actions)
         elif mode == 'evaluation':
             epsilon = self.evaluation_epsilon
         
