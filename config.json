@@ -17,6 +17,7 @@
         "use_priority_replay":                true,
         "priority_replay_alpha":              0.6,
         "priority_replay_beta":               0.4,
+        "anneal_importance_sampling_beta":    false,
 
         "multi_step_n":                       1,
         
